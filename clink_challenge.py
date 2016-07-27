@@ -1,9 +1,17 @@
 import unittest
 import sys
+import pprint
 from testfixtures import ShouldRaise
 
 
-class RoleEmpUtility(object):
+class HasEmployees(object):
+    def __init__(self, employees= []):
+        self._employees = employees
+
+    def get_employees(self): return self._employees
+    
+    def set_employees(self, employees_list): 
+        self._employees = employees_list
 
     @staticmethod
     def employee_loader(my_list):
@@ -17,69 +25,51 @@ class RoleEmpUtility(object):
             all_employees.append(emp)
 
             if 'employees' in mydict:
-                employees = RoleEmpUtility.employee_loader(mydict['employees'])
-                if employees and len(employees) > 0:
-                    emp.employees = employees
+                employees = HasEmployees.employee_loader(mydict['employees'])
+                if employees:
+                    emp.set_employees(employees)
 
         return all_employees
 
-    @staticmethod
-    def recurse_employees(list_of_employees):
+    def recurse_employees(self):
         uber_list = []
-        for emp in list_of_employees:
-            uber_list.append(emp)
 
-            if emp.can_have_employees():
-                more = emp.recurse_employees()
+        if isinstance(self, Employee):
+            uber_list = [self]
 
-                if more is not None and len(more) > 0:
-                    uber_list.extend(more)
+        for emp in self.get_employees():
 
-        return uber_list
+            more = emp.recurse_employees()
+            if more:
+                uber_list.extend(more)
+            else: 
+                uber_list.append(emp)
 
-    @staticmethod
-    def tally_allocations(employee_list):
-        tally = 0
+        return uber_list 
 
-        for employee in employee_list:
-            all_emp = employee.recurse_employees()
-            all_emp.append(employee)
-            
-            tally = tally + sum(s.allocation() for s in all_emp)
-
-        return tally
+    def tally_allocations(self):
+        return sum(s.allocation() for s in self.recurse_employees())
 
 
 class Employee(object):
-    def bad_employee_death(self): 
-        raise RuntimeError("Can not set employees on this type of employee")
+    '''Baseclass.. Employee never has subordinates by default. Errors if you try to set them'''
 
-    @property
-    def employees(self): return self._employees
+    def get_employees(self): return None
 
-    @employees.setter
-    def employees(self, list_of_employees): 
-        if self.can_have_employees() is False:
-            self.bad_employee_death();
-            
-        self._employees = list_of_employees
+    def allocation(self): # Abstract method, defined by convention only
+        raise NotImplementedError("Subclass must implement abstract method")
 
-    def can_have_employees(self): return False
+    def tally_allocations(self): self.allocation()
 
-    def recurse_employees(self): 
-        if self.can_have_employees is False: return [] 
-        return RoleEmpUtility.recurse_employees(self.employees)
+    def recurse_employees(self): return [self] 
 
-    def tally_allocations(self): return RoleEmpUtility.tally_allocations([self])
 
-class Manager(Employee):
+class Manager(HasEmployees, Employee):
     def __init__(self, employees= []):
-        self._employees = employees
-        super(Manager,self).__init__()
+        HasEmployees.__init__(self,employees)
+        Employee.__init__(self)
 
     def allocation(self): return 300
-
-    def can_have_employees(self): return True
 
 
 class Developer(Employee):
@@ -90,43 +80,41 @@ class QaTester(Employee):
     def allocation(self): return 500
 
 
-class Department(object):
-    def __init__(self, employees=[]):
-        self.employees = employees
-
-    def tally_allocations(self): return RoleEmpUtility.tally_allocations(self.employees)
+class Department(HasEmployees):
+    '''Just a Stub we may want more department behavior later'''    
 
 
 class Tests(unittest.TestCase):
     def test_manager(self):
-        employee_list = RoleEmpUtility.employee_loader([{'type': 'Manager'}])
+        employee_list = HasEmployees.employee_loader([{'type': 'Manager'}])
         self.assertEqual(len(employee_list), 1)
         self.assertEqual(isinstance(employee_list[0], Manager), True)
 
     def test_manager_with_employees(self):
-        employee_list = RoleEmpUtility.employee_loader([{'type': 'Manager',
+        employee_list = HasEmployees.employee_loader([{'type': 'Manager',
                                                          'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
                                                }])
 
-        subordinates = employee_list[0].employees
+        subordinates = employee_list[0].get_employees()
+        self.assertIsNotNone(subordinates)
         self.assertEqual(len(subordinates), 2)
 
         flattened_employees = employee_list[0].recurse_employees()
-        self.assertEqual(len(flattened_employees), 2)
+        self.assertEqual(len(flattened_employees), 3) #includes self
 
         self.assertEqual(employee_list[0].tally_allocations(), (300 + 1000 + 500))
 
 
     def test_only_managers_can_have_employees(self):
-        with ShouldRaise(RuntimeError("Can not set employees on this type of employee")):
-            mylist = RoleEmpUtility.employee_loader([
+        with ShouldRaise(AttributeError("'Developer' object has no attribute 'set_employees'")):
+            mylist = HasEmployees.employee_loader([
                         {'type': 'Developer',
                          'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
                         }]
                         )
 
     def test_department(self):
-        empl_list = RoleEmpUtility.employee_loader([{'type': 'Manager',
+        empl_list = HasEmployees.employee_loader([{'type': 'Manager',
                                                'employees': [{'type': 'Developer'}, {'type': 'QaTester'}, {'type': 'Developer'}],
                                               },
                                               {'type': 'Manager',
