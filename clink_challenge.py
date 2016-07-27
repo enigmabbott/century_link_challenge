@@ -51,12 +51,8 @@ class RoleEmpUtility(object):
 
 
 class Employee(object):
-    def __init__(self):
-        if self.can_have_employees():
-            self._employees=[]
-
     def bad_employee_death(self): 
-        raise(RuntimeError, "Can not set employees on this type of employee" )
+        raise RuntimeError("Can not set employees on this type of employee")
 
     @property
     def employees(self): return self._employees
@@ -70,20 +66,29 @@ class Employee(object):
 
     def can_have_employees(self): return False
 
-    def recurse_employees(self): return RoleEmpUtility.recurse_employees(self.employees)
-        
+    def recurse_employees(self): 
+        if self.can_have_employees is False: return [] 
+        return RoleEmpUtility.recurse_employees(self.employees)
+
     def tally_allocations(self): return RoleEmpUtility.tally_allocations([self])
 
 class Manager(Employee):
+    def __init__(self, employees= []):
+        self._employees = employees
+        super(Manager,self).__init__()
+
     def allocation(self): return 300
 
     def can_have_employees(self): return True
 
+
 class Developer(Employee):
     def allocation(self): return 1000
 
+
 class QaTester(Employee):
     def allocation(self): return 500
+
 
 class Department(object):
     def __init__(self, employees=[]):
@@ -113,7 +118,7 @@ class Tests(unittest.TestCase):
 
 
     def test_only_managers_can_have_employees(self):
-        with ShouldRaise():
+        with ShouldRaise(RuntimeError("Can not set employees on this type of employee")):
             mylist = RoleEmpUtility.employee_loader([
                         {'type': 'Developer',
                          'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
