@@ -52,7 +52,7 @@ class HasEmployees(object):
 
 
 class Employee(object):
-    '''Baseclass.. Employee never has subordinates by default. Errors if you try to set them'''
+    '''Baseclass... Employee never has subordinates by default. Errors if you try to set them'''
 
     def get_employees(self): return None
 
@@ -81,7 +81,7 @@ class QaTester(Employee):
 
 
 class Department(HasEmployees):
-    '''Just a Stub we may want more department behavior later'''    
+    '''Just a Stub; we may want more department behavior later'''    
 
 
 class Tests(unittest.TestCase):
@@ -92,8 +92,9 @@ class Tests(unittest.TestCase):
 
     def test_manager_with_employees(self):
         employee_list = HasEmployees.employee_loader([{'type': 'Manager',
-                                                         'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
-                                               }])
+                                                       'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
+                                                      }
+                                                     ])
 
         subordinates = employee_list[0].get_employees()
         self.assertIsNotNone(subordinates)
@@ -104,17 +105,17 @@ class Tests(unittest.TestCase):
 
         self.assertEqual(employee_list[0].tally_allocations(), (300 + 1000 + 500))
 
-
     def test_only_managers_can_have_employees(self):
         with ShouldRaise(AttributeError("'Developer' object has no attribute 'set_employees'")):
             mylist = HasEmployees.employee_loader([
                         {'type': 'Developer',
                          'employees': [{'type': 'Developer'}, {'type': 'QaTester'}]
-                        }]
-                        )
+                        }
+                        ])
 
     def test_department(self):
-        empl_list = HasEmployees.employee_loader([{'type': 'Manager',
+        empl_list = HasEmployees.employee_loader(
+                                             [{'type': 'Manager',
                                                'employees': [{'type': 'Developer'}, {'type': 'QaTester'}, {'type': 'Developer'}],
                                               },
                                               {'type': 'Manager',
